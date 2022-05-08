@@ -1,0 +1,121 @@
+---
+title: '331'
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+summary(cars)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r}
+brain = read.csv("brainhead.csv")
+x=brain$head.size
+y=brain$brain.wgt
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+```{r}
+par(mfrow=c(1,2))
+hist(x,main="Head Size")
+hist(y,main="brain weight")
+par(mfrow=c(1,1))
+
+```
+
+```{r}
+xbar=mean(x)
+ybar=mean(y)
+Sxy=sum((y-ybar)*(x-xbar))
+Sxx=sum((x-xbar)*(x-xbar))
+n=length(y)
+
+
+b1.hat = cov(y,x)/var(x)
+c(b1.hat, Sxy/Sxx)
+b0.hat=ybar-b1.hat*xbar
+
+
+yfit=b0.hat+b1.hat*x
+e=y-yfit
+sig.hat=sqrt(sum(e^2)/(n-2))
+
+M=lm(y~x)
+M
+```
+
+
+```{r}
+conf = 0.95
+qval = -qt(p=(1-conf)/2, df=n-2)
+
+s1 = sig.hat/sqrt(Sxx)
+
+b1.CI = b1.hat+c(-1,1)*qval*s1
+
+round(b1.CI, 3)
+
+s0=sig.hat*sqrt(1/n+xbar^2/Sxx)
+
+b0.CI = b0.hat + c(-1, 1) * qval * s0
+round(b0.CI, 3)
+confint(M)
+```
+
+
+```{r}
+Tobs = b1.hat/s1
+Tobs
+
+pval=pt(q=abs(Tobs), df=n-2, lower.tail = FALSE)
+pval=2*pval
+pval
+```
+
+
+
+```{r}
+pred.int = function(xstar,xlevel){
+  qval=qt(1-(1-xlevel)/2, df=n-2)
+  mu.star = b0.hat + b1.hat * xstar
+  s.star = sig.hat*(1+1/n+(xstar-xbar)^2/Sxx) # standard error
+  cbind(L=mu.star - qval * s.star,
+        U=mu.star + qval * s.star)
+}
+pred.result = pred.int(120, 0.95)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

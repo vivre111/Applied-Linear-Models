@@ -1,0 +1,606 @@
+---
+title: "finalproject"
+author: "phantomOfLaMancha"
+date: "3/26/2021"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r}
+# functions we might need
+
+get.reduced.model = function(model, i){
+  # convenient helper to return the new model with ith feature removed
+  # i can be vector or number
+  
+  # first column of data will be response variable, other columns are features of original
+  # model, intercept wouldn't appear here as a feature
+  data = model$model
+  r = nrow(data)
+  c = ncol(data)
+  
+  # special case if there is only 1 feature left
+  if(c==2){
+    return(lm(data[1:r,1]~1))
+  }
+  
+  # we shouldn't receive a model with only intercept
+  if(c==1){
+    stop("get.reduced.model() recieved a model with intercept only")
+  }
+  
+  # explanatory variable 
+  names = colnames(data)[2:c]
+  # response variable
+  yname = colnames(data)[1]
+  formu = as.formula( paste(yname, "~", paste( names[-i], collapse = "+")))
+  # new model
+  m =  lm(formu , data=data)
+  return(m)
+}
+
+kfold.cv = function(data, M, ind, kfolds=10){
+  mspe = rep(0, kfolds)
+  if(length(levels(ind))!= kfolds){
+    stop("given index has incorrect number of folds")
+  }
+  for(ii in 1:Kfolds) {
+    train.ind <- which(ind!=ii) # training observations
+    M.cv <- update(M, subset = train.ind)
+    # cross-validation residuals
+    M.res <- data$length[-train.ind] - # test observations
+      predict(M.cv, newdata = data[-train.ind,]) # prediction with training data
+    # mspe
+    mspe[ii] <- mean(M.res^2)
+  }
+  mean(mspe)
+}
+
+get_col <- function(mat,i,j, breaks, cols=NULL, palette="Blues") {
+	if (is.null(cols)) {
+		cols <- brewer.pal(length(breaks)+1, palette)}
+	val <- 1
+	for (b in breaks) {
+	  if (is.na(mat [i,j])){
+	    val <- 0
+	  }
+	  else if (mat[i,j] > b) {
+			val <- val + 1}
+			}
+	cols[val]
+	}
+
+require(RColorBrewer)
+col_areas <- function(matrix,
+												 breaks=NULL,
+												 cols=NULL, 
+												 palette="Blues", 
+												 xlab="West    <----------->    East",
+												 ylab="South   <----------->   North",
+												 ...){
+	if (is.null(breaks)) {
+			breaks <- unique(fivenum(matrix))}
+		 	
+  plot(c(0, 100*ncol(matrix)),
+  			c(0, 100*nrow(matrix)), frame.plot=TRUE,
+  			type="n",
+  			xlab=xlab, 
+  			ylab=ylab, axes=FALSE, ...)
+  			
+  nr <- nrow(matrix)
+  nc <- ncol(matrix)			
+	for (i in 1:nr) {
+		for (j in 1:nc) {
+		    rect((j-1)*100,
+		         (nr-i+1)*100,
+		         j*100,
+		         (nr-i)*100,
+		         border=NA,
+		         col=get_col(matrix,i,j,breaks,cols,palette))
+		         }
+		       }
+}
+
+```
+
+
+
+understanding our polulation:
+```{r}
+library("eikosograms")
+library("venneuler")
+data = read.csv("pollutants.csv")
+
+# change factor features to reasonable names
+
+ind = data$male == 1
+data$male[ind] = "M"
+data$male[!ind] = "F"
+data$agecat = ceiling(data$ageyrs/25 )
+agecat = c("<25","25-50","51-75",">75")
+
+for (i in 1:4){
+  ind = data$agecat == i
+  data$agecat[ind] = agecat[i]
+}
+
+
+edu=c("below", "highsch", "college","grad")
+for (i in 1:4){
+  ind = data$edu_cat == i
+  data$edu_cat[ind] = edu[i]
+}
+
+race=c("Other", "Mex", "Black","White")
+for (i in 1:4){
+  ind = data$race_cat == i
+  data$race_cat[ind] = race[i]
+}
+
+eikos(edu_cat~ race_cat + male ,data=data)
+eikos(edu_cat~ male+agecat ,data=data)
+
+
+
+
+# look at intersection
+
+# note surface of above 45 should be approximately half of surface of total population
+
+collegeabove = which( (data$edu_cat == "college") + (data$edu_cat == "grad") ==1 )
+collegeabove.names = rep("collegeabove", length(collegeabove ))
+
+white= which( data$race_cat == "White" )
+white.names = rep("White", length(white))
+
+median(data$ageyrs)
+
+above45 = which(data$ageyrs>45)
+above45.names= rep("above45", length(above45))
+
+male = which(data$male == "M")
+male.names = rep("male", length(male))
+
+female = which(data$male == "F")
+female.names = rep("female", length(female))
+
+subjectinfo = c(above45, collegeabove, male)
+names = c(above45.names , collegeabove.names, male.names)
+ven = venneuler(data.frame(elements = subjectinfo, sets=names))
+plot(ven)
+
+# get rid of the agecat data we added
+if (colnames(data)[ ncol(data)] == "agecat"){
+  data = data[,-ncol(data)]
+}
+
+
+
+```
+
+
+```{r}
+library(glmnet)
+library(car)
+
+
+data = read.csv("pollutants.csv")
+
+# the index does not really mean anything
+data = data[,-1]
+
+nTotal = nrow(data)
+
+#change some feature to factor type
+data$race_cat = factor(data$race_cat)
+data$edu_cat = factor(data$edu_cat)
+data$male = factor(data$male)
+data$smokenow= factor(data$smokenow)
+
+data.train = data[1:700,]
+data.test = data[701:nTotal,]
+runif(1)
+```
+
+
+correlation between features
+```{r}
+model = lm(length~. , data=data)
+#original vif
+
+vif(model)
+
+t1=colnames( model$model)
+
+
+while (TRUE) {
+  score = vif(model)
+  if (max(score) <10){
+    break
+  }
+  ind = which.max(score)
+  # this is safe with factor data type
+  model = get.reduced.model(model, ind)
+}
+# reduced model vif
+vif(model)
+t2=colnames( model$model)
+
+setdiff(t1,t2)
+```
+
+
+does one feature explain the model?
+```{r}
+Xfull = lm(length~., data=data)$model
+
+res = matrix(0, nrow = (ncol(Xfull)), ncol = 3)
+
+
+for(c in 2:ncol(Xfull)){
+  model = lm(data$length~Xfull[,c])
+  res[c,1] = mean(model$residuals^2)
+  if(! is.factor(Xfull[,c])){
+    modelpower2 = lm(data$length~poly( Xfull[,c], 2))
+    modellog = lm(log(data$length)~ Xfull[,c])
+    res[c,2] = mean(modelpower2$residuals^2)
+    res[c,3] = mean(modellog$residuals^2)
+  }
+  #res[c,3] = mean(modelpower2$residuals^2)
+}
+
+removezero = function(v){
+  v[v==0] = NA
+  v
+}
+
+box = list(simple.linear=removezero(res[,1]), log=removezero(res[,2]), sqr=removezero(res[,3]) )
+
+boxplot(box)
+
+which.min(removezero(res[,1]))
+which.min(removezero(res[,2]))
+which.min(removezero(res[,3]))
+
+
+colnames(Xfull)[30]
+
+simplelinear = lm(length~ageyrs, data=data)
+plot(data$ageyrs, data$length)
+abline(simplelinear$coefficients)
+``` 
+seems there is a linear relationship but looks insufficient.
+
+Also seems sqr or log does not do exponentially better here
+
+
+
+
+what about 2 features
+
+
+best model based on lasso/ridge
+```{r}
+### LASSO
+## fit models
+M = model.matrix(lm(length~., data=data))
+y_train = data$length[1:700]
+X_train = M[1:700,-1]
+y_test= data$length[701:nTotal]
+X_test= M[701:nTotal,-1]
+
+M_lasso <- glmnet(x=X_train,y=y_train,alpha = 1)
+####
+
+####
+## plot paths
+plot(M_lasso,xvar = "lambda",label=TRUE)
+
+## fit with crossval
+cvfit_lasso <-  cv.glmnet(x=X_train,y=y_train,alpha = 1)
+
+## plot MSPEs by lambda
+plot(cvfit_lasso)
+
+## estimated betas for minimum lambda 
+coef(cvfit_lasso, s = "lambda.min")
+
+## predictions
+pred_lasso <- predict(cvfit_lasso,newx=X_test,  s="lambda.min")
+
+## MSPE in test set
+MSPE_lasso <- mean((pred_lasso-y_test)^2)
+
+
+
+
+
+## RIDGE
+## fit models
+M_ridge <- glmnet(x=X_train,y=y_train,alpha = 0)
+
+## plot paths
+plot(M_ridge,xvar = "lambda",label=TRUE)
+
+## fit with crossval
+cvfit_ridge <-  cv.glmnet(x=X_train,y=y_train,alpha = 0)
+
+## plot MSPEs by lambda
+plot(cvfit_ridge)
+
+## estimated betas for minimum lambda 
+coef(cvfit_ridge, s = "lambda.min")## alternatively could use "lambda.1se"
+
+## predictions
+pred_ridge <- predict(cvfit_ridge,newx=X_test,  s="lambda.min")
+
+## MSPE in test set
+MSPE_ridge <- mean((pred_ridge-y_test)^2)
+
+
+## stepwise
+
+M0 = lm(length~1, data=data.train)
+Mfull = lm(length~., data=data.train)
+Mstep <- step(object = M0,
+              scope = list(lower = M0, upper = Mfull),
+              direction = "both", trace = 0, k = 2)
+
+MSPE_step = mean((  predict(Mstep, newdata=data.test) - y_test)^2)
+
+p = predict(Mstep, newdata=data.test)
+
+cvfit_lasso$del
+
+MSPE_lasso
+MSPE_ridge
+MSPE_step
+
+
+```
+
+say we try to fit with only 2 features
+
+we first see if lasso choose the same simple linear model
+```{r}
+# lasso choose the same single variable
+min(which((M_lasso$lambda)<=exp( -2.5)))
+coefs = M_lasso$beta[,4]
+which(coefs!=0)
+
+
+library("plot3D")
+
+# 2 feature lasso choose
+min(which((M_lasso$lambda)<=exp( -3.8)))
+coefs = M_lasso$beta[,18]
+choosen=which(coefs!=0)
+coefs[choosen]
+
+library(tidyverse)
+library(caret)
+library(leaps)
+
+models= regsubsets(length~., data=data, nvmax=2)
+# rss of all 2 feature model, we see no magical model
+mse = models$rss/nrow(data)
+hist(mse)
+library("loon")
+z=data$length
+y=data$ageyrs
+x=data$POP_furan3
+
+fit <- lm(z ~ x + y)
+# predict values on regular xy grid
+grid.lines = 26
+x.pred <- seq(min(x), max(x), length.out = grid.lines)
+y.pred <- seq(min(y), max(y), length.out = grid.lines)
+xy <- expand.grid( x = x.pred, y = y.pred)
+z.pred <- matrix(predict(fit, newdata = xy), 
+                 nrow = grid.lines, ncol = grid.lines)
+# fitted points for droplines to surface
+fitpoints <- predict(fit)
+# scatter plot with regression plane
+scatter3D(x, y, z, pch = 18, cex = 2, 
+    theta = 20, phi = 20, ticktype = "detailed",
+    surf = list(x = x.pred, y = y.pred, z = z.pred,  
+    facets = NA, fit = fitpoints), xlab="pop_furan3", ylab="ageyrs",zlab="length")
+
+
+#turn ageyrs and pop_furan into grids
+
+miny=min(y)
+intervaly = (max(y)-miny)/10
+minx=min(x)
+intervalx = (max(x)-minx)/10
+
+xy = matrix(0, nrow = 10, ncol = 10)
+count = matrix(0, nrow = 10, ncol = 10)
+for (i in 1:nrow(data)){
+  xgrid = (x[i]-minx)/intervalx
+  ygrid = (y[i]-miny)/intervaly
+  count[xgrid,ygrid] = 1 + count[xgrid,ygrid]
+  xy[xgrid,ygrid] = xy[xgrid, ygrid] + z[i]
+}
+xygrid = xy/count
+col_areas(xygrid,xlab="pop_furan3", ylab="ageyrs")
+maxz=max(z)
+minz=min(z)
+breaks = seq( minz, maxz, by=(maxz-minz)/5 )
+col_areas(xygrid,xlab="pop_furan3", ylab="ageyrs", breaks = breaks)
+
+
+# anyway how does this compare to the best fit?
+
+
+```
+
+
+
+4/4
+
+```{r}
+
+cols = colnames(data) 
+bios.ind = str_detect(cols, "POP")
+bios = cols[bios.ind]
+expr = paste("length~", paste(bios, collapse = "+"))
+M = model.matrix(lm(expr, data=data))
+y_train = data$length[1:700]
+X_train = M[1:700,(1:ncol(M))[bios.ind]]
+y_test= data$length[701:nTotal]
+X_test= M[701:nTotal,(1:ncol(M))[bios.ind]]
+
+
+M_bios.lasso <- glmnet(x=X_train,y=y_train,alpha = 1)
+####
+
+####
+## plot paths
+plot(M_bios.lasso,xvar = "lambda",label=TRUE)
+
+## fit with crossval
+cvfit_bios.lasso <-  cv.glmnet(x=X_train,y=y_train,alpha = 1)
+
+## plot MSPEs by lambda
+plot(cvfit_bios.lasso)
+
+## estimated betas for minimum lambda 
+coef(cvfit_bios.lasso, s = "lambda.min")
+
+## predictions
+pred_bios.lasso <- predict(cvfit_bios.lasso,newx=X_test,  s="lambda.min")
+
+## MSPE in test set
+MSPE_bios.lasso <- mean((pred_bios.lasso-y_test)^2)
+MSPE_bios.lasso
+
+plot(pred_bios.lasso, y_test)
+```
+
+
+```{r}
+
+
+
+
+tempfunction =function(X){
+  newdata = X
+  M = model.matrix(lm(expr, data=newdata))
+  y_train = data$length[1:700]
+  X_train = M[1:700,(1:ncol(M))[bios.ind]]
+  y_test= data$length[701:nTotal]
+  X_test= M[701:nTotal,(1:ncol(M))[bios.ind]]
+  
+  
+  M_bios.lasso <- glmnet(x=X_train,y=y_train,alpha = 1)
+  ####
+  
+  ####
+  ## plot paths
+  
+  ## fit with crossval
+  cvfit_bios.lasso <-  cv.glmnet(x=X_train,y=y_train,alpha = 1)
+  
+  ## plot MSPEs by lambda
+  
+  ## estimated betas for minimum lambda 
+  print( coef(cvfit_bios.lasso, s = "lambda.min"))
+  
+  ## predictions
+  pred_bios.lasso <- predict(cvfit_bios.lasso,newx=X_test,  s="lambda.min")
+  
+  ## MSPE in test set
+  MSPE_bios.lasso <- mean((pred_bios.lasso-y_test)^2)
+  print( MSPE_bios.lasso)
+  
+  plot(pred_bios.lasso, y_test)
+  
+}
+
+
+
+tempfunction(data)
+#########################
+X=data
+for (i in 1:ncol(M)){
+  X[,i] = X[,i] / sd(X[,i])
+}
+
+tempfunction(X)
+
+
+#########################
+
+newX=X
+for (i in 2:ncol(M)){
+  newX[,i] = log( newX[,i])
+}
+tempfunction(newX)
+
+
+#TODO 4 assumption 
+
+#fit pollutants over other (only collect significant results)
+
+#reasonable length
+
+
+
+
+```
+
+
+length~pollutents
+
+good model:
+   newvariable: predicted length (by pollutents)     $\hat y$ not $\hat y +\sigma$
+   
+newvariable~bio/othercovariates
+
+```{r}
+
+newX=data
+for (i in 2:ncol(M)){
+  newX[,i] = log( newX[,i])
+}
+
+
+  M = model.matrix(lm(expr, data=newX))
+  y_train = data$length[1:700]
+  X_train = M[1:700,(1:ncol(M))[bios.ind]]
+  y_test= data$length[701:nTotal]
+  X_test= M[701:nTotal,(1:ncol(M))[bios.ind]]
+  
+  
+  M_bios.lasso <- glmnet(x=X_train,y=y_train,alpha = 1)
+  ####
+  
+  ####
+  ## plot paths
+  
+  ## fit with crossval
+  cvfit_bios.lasso <-  cv.glmnet(x=X_train,y=y_train,alpha = 1)
+  
+  ## plot MSPEs by lambda
+  
+  ## estimated betas for minimum lambda 
+  print( coef(cvfit_bios.lasso, s = "lambda.min"))
+  
+  ind =  which(coef(cvfit_bios.lasso, s = "lambda.min")!=0)
+  
+  newdata = data[,ind] 
+  newdata[,2:ncol(data)] = log(newdata[,2:ncol(newdata)])
+  
+  model = lm(length~., data=newdata)
+  
+  s =summary(model)
+  
+  plot(data$length, model$fitted.values)
+  
+#### if you want to use the lasso model directly, just use 
+cvfit_bios.lasso
+``` 
+
+

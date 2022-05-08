@@ -1,0 +1,27 @@
+\contentsline {section}{\numberline {1}review}{3}{section.1}%
+\contentsline {subsection}{\numberline {1.1}variance}{3}{subsection.1.1}%
+\contentsline {subsection}{\numberline {1.2}corvariance}{3}{subsection.1.2}%
+\contentsline {subsection}{\numberline {1.3}Chi-sqaure}{3}{subsection.1.3}%
+\contentsline {subsection}{\numberline {1.4}t-Distribution}{3}{subsection.1.4}%
+\contentsline {subsection}{\numberline {1.5}correlation}{4}{subsection.1.5}%
+\contentsline {subsection}{\numberline {1.6}simple linear regression}{4}{subsection.1.6}%
+\contentsline {section}{\numberline {2}inference}{4}{section.2}%
+\contentsline {subsection}{\numberline {2.1}standard error}{4}{subsection.2.1}%
+\contentsline {subsection}{\numberline {2.2}Hypothesis test}{5}{subsection.2.2}%
+\contentsline {subsection}{\numberline {2.3}CI}{5}{subsection.2.3}%
+\contentsline {section}{\numberline {3}Random Vector and Multivariable Normal}{5}{section.3}%
+\contentsline {subsection}{\numberline {3.1}inference}{6}{subsection.3.1}%
+\contentsline {section}{\numberline {4}}{6}{section.4}%
+\contentsline {section}{\numberline {5}ANOVA, R-squared}{7}{section.5}%
+\contentsline {subsection}{\numberline {5.1}Multicolinearity}{7}{subsection.5.1}%
+\contentsline {section}{\numberline {6}Model Building Principles}{7}{section.6}%
+\contentsline {subsection}{\numberline {6.1}interpretability}{7}{subsection.6.1}%
+\contentsline {subsection}{\numberline {6.2}Parsimony}{7}{subsection.6.2}%
+\contentsline {subsection}{\numberline {6.3}Goodness of fit}{7}{subsection.6.3}%
+\contentsline {subsection}{\numberline {6.4}Predictive accuracy}{8}{subsection.6.4}%
+\contentsline {section}{\numberline {7}assumption}{8}{section.7}%
+\contentsline {subsection}{\numberline {7.1}independence}{8}{subsection.7.1}%
+\contentsline {subsection}{\numberline {7.2}normality}{8}{subsection.7.2}%
+\contentsline {subsection}{\numberline {7.3}heteroskadastcity}{8}{subsection.7.3}%
+\contentsline {subsection}{\numberline {7.4}linearity }{8}{subsection.7.4}%
+\contentsline {subsection}{\numberline {7.5}outliers}{8}{subsection.7.5}%

@@ -1,0 +1,317 @@
+---
+title: "a2"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r}
+data = read.csv("aquifer.csv")
+type <- factor(data$type)
+levels(type)
+data$type = type
+regtype = lm(porosity~type, data=data)
+regdensity = lm(porosity~density, data=data)
+regresidue = lm(porosity~residue, data=data)
+regglength = lm(porosity~glength, data=data)
+
+summary(regtype)
+summary(regdensity)
+summary(regresidue)
+summary(regglength)
+
+
+```
+We have when limestone type is Axeann, porosity is expected to be 1.5833 (Other features stay the same) \newline
+Other features stay the same, When limestone type is Bellefone, its porosity is expected to be 0.1189 less than a Axeann type limestone\newline
+Other features stay the same, When limestone type is Nittany , its porosity is expected to be 1.6054 more than a Axeann type limestone\newline
+Other features stay the same, When limestone type is Stonehenge, its porosity is expected to be 0.8453 less than a Axeann type limestone\newline
+Other features stay the same, when stone density increase by 1, porosity is expected to decrease by 1.683\newline
+Other features stay the same, when stone residue increase by 1, porosity is expected to increase by 0.1094\newline
+Other features stay the same, when stone glength increase by 1, porosity is expected to decrease by 0.6517\newline
+
+we observe density has smallest R-square 0.003182, meaning smallest relationship with porosity\newline
+glength has 2nd smallest R-square 0.1188, meaning 2nd smallest relationship with porosity\newline
+residue has second largest R-square 0.182, meaning 2nd largest relationship with porosity\newline
+type has largest R-square 0.2334, meaning largest relationship with porosity\newline
+pvalue of H0: "density has no relationship with porosity" is 0.7631, we do not reject null hypothesis\newline
+pvalue of H0: "glength has no relationship with porosity" is 0.05763, we do not reject null hypothesis,
+but there is no reason we should trust the null hypotheses\newline
+pvalue of H0: "residue has no relationship with porosity" is 0.0167, we reject null hypothesis\newline
+pvalue of H0: "type has no relationship with porosity" is 0.06286, we do not reject null hypothesis,
+but there is no reason we should trust the null hypotheses\newline
+
+we observe although type has largest R-square, it does not have lowest pval, which is as expected as
+degree of freedom of type is smallest in F test as there are more than 1 parameters.
+
+(b)
+```{r}
+model = lm(porosity~type+residue+glength+density, data = data)
+summary(model)
+```
+We observe in our new model, the estimate of beta_density (expected increase of porosity as density increase by 1)
+and intercept (expected porosity when stone type is Axeann) are significantly different in the two models ,  beta_density is smaller
+in our multiple linear regression model, and intercept is larger in multiple linear regression. Other features'estimates does not vary by a lot.
+
+
+Overall, in this case, betahat of feature with small p-values, which are "good" explanatory variables on their own in simple linear regression,
+change less in multiple linear regression than betahat of "bad" explanatory variables. This is fishy as it seems increase in in glength/residue seems to imply same increase in porosity in both model(whether other features stays the same or not), and they are strong explanatory variable in both model.
+
+
+For t-statistics, the categorical variable type has significantly different pvals in our new multiple linear regressoin model than in our old simple linear regression model,
+
+Bellfonte is smaller, Nittany is significantly larger, density is significantly smaller in multiple linear regression model.
+other feature has more or less similarly p-value in both models. glength/residue remains strongest in both model, density remains the 
+weakest explanatory variable.
+
+Overall, large p-values in our first model has smaller p-values in our second model. This is because those variable alone
+does not explain the model, but together with other feature, they could explain the model at least better.
+
+
+```{r}
+beta.residue.se = summary(model)$coefficients['residue','Std. Error']
+beta.residue.hat = summary(model)$coefficients['residue','Estimate']
+beta.residue.ci = beta.residue.hat + c(1,-1)*beta.residue.se*qt(0.975,24)
+# 95% confidence interval
+beta.residue.ci
+``` 
+we are 95% certain that true value of beta_residue falls with 0.00895 and 0.205 given a multiple linear regression model.
+
+(d)
+```{R}
+md = lm(porosity~type+glength+density+residue*glength, data=data)
+summary(md)
+```
+with increase in one unit of residue (while other feature stays the same), porosity is expected to increase by (1.653-0.136*density)
+
+(e)
+```{r}
+me = lm(porosity~residue*glength, data=data)
+summary(me)
+anova(md)
+anova(me)
+```
+this is sensible because residue standard error is lower for the reduced model, Also its F test has significantly smaller pval
+than the full model, meaning we are more certain features in the reduced model explains porosity well.
+
+Also if we look at the ANOVA, each parameter smaller p-val in the reduced model than in the full model, and the mean sqaure residuals is also less.
+
+$H_0$: beta_residue = 0, we reject $H_0$ at $\alpha = 0.05$ level
+
+$H_0$: beta_glength = 0, we reject $H_0$ at $\alpha = 0.05$ level
+
+$H_0$: beta_residue*glength = 0, we reject $H_0$ at $\alpha = 0.05$ level
+
+conclusion: we reject null hyphothesis that beta_residue, beta_glength, and beta_residue*glength are zero
+individually, so they are all important explanatory feature in our multiple linear regression model (with correlated features)
+
+\newpage
+4
+```{r}
+original.data = read.csv("satisfaction.csv")
+data = original.data[1:20,]
+set.seed(2070480)
+simuY = -2+0*data$Age+0.2*data$Severity+1*data$Stress+rnorm(20,mean=0,sd=2)
+data$Satisfaction2 = simuY
+
+model = lm(Satisfaction2~Age+Severity+Stress, data=data)
+s=summary(model)
+df = model$df.residual
+age_t =s$coefficients['Age', 't value']
+pval_age = 1-pt(age_t, df)
+# note this is Pr(T>t)
+pval_age
+
+severity_t =s$coefficients['Severity', 't value']
+pval_severity= 1-pt(severity_t, df)
+pval_severity
+```
+we do not reject null hypothesis beta_age == 0
+
+we do not reject null hypothesis beta_severity == 0
+
+(v)
+```{r}
+
+age_reject_count = 0
+severity_reject_count = 0
+
+for (i in 1:4000){
+  simuY = -2+0*data$Age+0.2*data$Severity+1*data$Stress+rnorm(20,mean=0,sd=2)
+  data$Satisfaction2 = simuY
+  
+  model = lm(Satisfaction2~Age+Severity+Stress, data=data)
+  s=summary(model)
+  age_t =s$coefficients['Age', 't value']
+  age_pval = 1-pt(age_t, df)
+  
+  severity_t =s$coefficients['Severity', 't value']
+  severity_pval = 1-pt(severity_t, df)
+  
+  if (age_pval <0.05){
+    age_reject_count = age_reject_count + 1
+  }
+  if (severity_pval <0.05){
+    severity_reject_count = severity_reject_count + 1
+  }
+}
+
+A1=age_reject_count/4000
+A2=severity_reject_count/4000
+A1
+A2
+
+```
+B
+```{r}
+age_reject_count = 0
+severity_reject_count = 0
+data=original.data
+
+for (i in 1:4000){
+  simuY = -2+0*data$Age+0.2*data$Severity+1*data$Stress+rnorm(46,mean=0,sd=2)
+  data$Satisfaction2 = simuY
+  
+  model = lm(Satisfaction2~Age+Severity+Stress, data=data)
+  s=summary(model)
+  
+  age_t =s$coefficients['Age', 't value']
+  age_pval = 1-pt(age_t, df)
+  
+  severity_t =s$coefficients['Severity', 't value']
+  severity_pval = 1-pt(severity_t, df)
+  
+  
+  if (age_pval <0.05){
+    age_reject_count = age_reject_count + 1
+  }
+  if (severity_pval <0.05){
+    severity_reject_count = severity_reject_count + 1
+  }
+}
+
+B1=age_reject_count/4000
+B2=severity_reject_count/4000
+B1
+B2
+```
+
+
+```{r}
+age_reject_count = 0
+severity_reject_count = 0
+data=original.data[1:20,]
+
+for (i in 1:4000){
+  simuY = -2+0*data$Age+0.2*data$Severity+1*data$Stress+rnorm(20,mean=0,sd=1)
+  data$Satisfaction2 = simuY
+  
+  model = lm(Satisfaction2~Age+Severity+Stress, data=data)
+  s=summary(model)
+  
+  
+  age_t =s$coefficients['Age', 't value']
+  age_pval = 1-pt(age_t, df)
+  
+  severity_t =s$coefficients['Severity', 't value']
+  severity_pval = 1-pt(severity_t, df)
+  
+  
+  if (age_pval <0.05){
+    age_reject_count = age_reject_count + 1
+  }
+  if (severity_pval <0.05){
+    severity_reject_count = severity_reject_count + 1
+  }
+}
+
+C1=age_reject_count/4000
+C2=severity_reject_count/4000
+
+C1
+C2
+
+```
+
+```{r}
+age_reject_count = 0
+severity_reject_count = 0
+data=original.data
+
+for (i in 1:4000){
+  simuY = -2+0*data$Age+0.2*data$Severity+1*data$Stress+rnorm(46,mean=0,sd=1)
+  data$Satisfaction2 = simuY
+  
+  model = lm(Satisfaction2~Age+Severity+Stress, data=data)
+  s=summary(model)
+  
+  age_t =s$coefficients['Age', 't value']
+  age_pval = 1-pt(age_t, df)
+  
+  severity_t =s$coefficients['Severity', 't value']
+  severity_pval = 1-pt(severity_t, df)
+  
+  if (age_pval <0.05){
+    age_reject_count = age_reject_count + 1
+  }
+  if (severity_pval <0.05){
+    severity_reject_count = severity_reject_count + 1
+  }
+}
+
+D1=age_reject_count/4000
+D2=severity_reject_count/4000
+
+D1
+D2
+```
+
+```{r}
+help(df)
+pf(9.64,3,24)
+matr = matrix(c(C1, D1,A1 ,B1),nrow = 2, ncol = 2)
+dimnames(matr)= list(c("numsim=20","numsim=46"), c("sigma=1","sigma=2"))
+# for beta 1, the percentage of null hypothesis that got rejected is:
+matr
+library(knitr)
+kable(matr, caption = "beta 1, fraction of time H0 rejected")
+
+
+matr = matrix(c(C2, D2, A2,B2),nrow = 2, ncol = 2)
+dimnames(matr)= list(c("numsim=20","numsim=46"), c("sigma=1","sigma=2"))
+# for beta 2, the percentage of null hypothesis that got rejected is:
+kable(matr, caption = "beta 2, fraction of time H0 rejected")
+```
+
+
+we calculate standard deviation for beta1 and beta2 to get a clearer understanding
+```{R}
+m=lm(Satisfaction~Age+Severity+Stress, data=original.data)
+X=model.matrix(m)
+#variance of beta_1 when n=46 and sigma=1,2
+c(1,2)*solve(t(X)%*%X)[2,2]
+#variance of beta_2 when n=46 and sigma=1,2
+c(1,2)*solve(t(X)%*%X)[3,3]
+
+
+m=lm(Satisfaction~Age+Severity+Stress, data=original.data[1:20,])
+X=model.matrix(m)
+#variance of beta_1 when n=20 and sigma=1,2
+c(1,2)*solve(t(X)%*%X)[2,2]
+#variance of beta_2 when n=20 and sigma=1,2
+c(1,2)*solve(t(X)%*%X)[3,3]
+
+```
+
+we observe it's easier to reject $\beta_2\leq0$ than to reject $\beta_1\leq0$, this is because beta2 actually > 0, and its variance, especially when n is large, forbids it from going under 0.
+
+we also observe pval for $\beta_1\leq0$ is some constant around 0.1, whereas pval for $\beta_2\leq0$ differs as 
+n and $\sigma$ change. 
+
+This is because true CI for $\hat\beta_1$ always covers 0, while true CI for $\hat\beta_2$ only covers 0
+when its confidence interval is large enough (aka, when sigma is large). 
+the CI for $\beta_2$ also gets shorter as n decrease, making it harder to cover 0.
+
+we also observe as n increase and alpha decrease, we get more accurate result on $\hat\beta_2$. this is reasonable as the confidence 
+interval becomes smaller, it's easier to reject $H_0$
+

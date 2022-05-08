@@ -1,0 +1,468 @@
+\documentclass[10pt]{article} 
+
+\usepackage{fullpage}
+\usepackage{bookmark}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage[dvipsnames]{xcolor}
+\usepackage{hyperref} % for the URL
+\usepackage[shortlabels]{enumitem}
+\usepackage{mathtools}
+\usepackage[most]{tcolorbox}
+\usepackage[amsmath,standard,thmmarks]{ntheorem} 
+\usepackage{physics}
+\usepackage{pst-tree} % for the trees
+\usepackage{verbatim} % for comments, for version control
+\usepackage{tabu}
+\usepackage{tikz}
+\usepackage{float}
+
+\lstnewenvironment{python}{
+\lstset{frame=tb,
+language=Python,
+aboveskip=3mm,
+belowskip=3mm,
+showstringspaces=false,
+columns=flexible,
+basicstyle={\small\ttfamily},
+numbers=none,
+numberstyle=\tiny\color{Green},
+keywordstyle=\color{Violet},
+commentstyle=\color{Gray},
+stringstyle=\color{Brown},
+breaklines=true,
+breakatwhitespace=true,
+tabsize=2}
+}
+{}
+
+\lstnewenvironment{cpp}{
+\lstset{
+backgroundcolor=\color{white!90!NavyBlue},   % choose the background color; you must add \usepackage{color} or \usepackage{xcolor}; should come as last argument
+basicstyle={\scriptsize\ttfamily},        % the size of the fonts that are used for the code
+breakatwhitespace=false,         % sets if automatic breaks should only happen at whitespace
+breaklines=true,                 % sets automatic line breaking
+captionpos=b,                    % sets the caption-position to bottom
+commentstyle=\color{Gray},    % comment style
+deletekeywords={...},            % if you want to delete keywords from the given language
+escapeinside={\%*}{*)},          % if you want to add LaTeX within your code
+extendedchars=true,              % lets you use non-ASCII characters; for 8-bits encodings only, does not work with UTF-8
+% firstnumber=1000,                % start line enumeration with line 1000
+frame=single,	                   % adds a frame around the code
+keepspaces=true,                 % keeps spaces in text, useful for keeping indentation of code (possibly needs columns=flexible)
+keywordstyle=\color{Cyan},       % keyword style
+language=c++,                 % the language of the code
+morekeywords={*,...},            % if you want to add more keywords to the set
+% numbers=left,                    % where to put the line-numbers; possible values are (none, left, right)
+% numbersep=5pt,                   % how far the line-numbers are from the code
+% numberstyle=\tiny\color{Green}, % the style that is used for the line-numbers
+rulecolor=\color{black},         % if not set, the frame-color may be changed on line-breaks within not-black text (e.g. comments (green here))
+showspaces=false,                % show spaces everywhere adding particular underscores; it overrides 'showstringspaces'
+showstringspaces=false,          % underline spaces within strings only
+showtabs=false,                  % show tabs within strings adding particular underscores
+stepnumber=2,                    % the step between two line-numbers. If it's 1, each line will be numbered
+stringstyle=\color{GoldenRod},     % string literal style
+tabsize=2,	                   % sets default tabsize to 2 spaces
+title=\lstname}                   % show the filename of files included with \lstinputlisting; also try caption instead of title
+}
+{}
+
+\newcommand{\su}[2]{\sum_{#1}^{#2}}
+% floor, ceiling, set
+\DeclarePairedDelimiter{\ceil}{\lceil}{\rceil}
+\DeclarePairedDelimiter{\floor}{\lfloor}{\rfloor}
+\DeclarePairedDelimiter{\set}{\lbrace}{\rbrace}
+\DeclarePairedDelimiter{\iprod}{\langle}{\rangle}
+
+\DeclareMathOperator{\Int}{int}
+\DeclareMathOperator{\mean}{mean}
+
+% commonly used sets
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\N}{\mathbb{N}}
+\newcommand{\Q}{\mathbb{Q}}
+\renewcommand{\P}{\mathbb{P}}
+
+\newcommand{\sset}{\subseteq}
+
+\theoremstyle{break}
+\theorembodyfont{\upshape}
+
+\newtheorem{thm}{Theorem}[subsection]
+\tcolorboxenvironment{thm}{
+enhanced jigsaw,
+colframe=Dandelion,
+colback=White!90!Dandelion,
+drop fuzzy shadow east,
+rightrule=2mm,
+sharp corners,
+before skip=10pt,after skip=10pt
+}
+
+\newtheorem{cor}{Corollary}[thm]
+\tcolorboxenvironment{cor}{
+boxrule=0pt,
+boxsep=0pt,
+colback={White!90!RoyalPurple},
+enhanced jigsaw,
+borderline west={2pt}{0pt}{RoyalPurple},
+sharp corners,
+before skip=10pt,
+after skip=10pt,
+breakable
+}
+
+\newtheorem{lem}[thm]{Lemma}
+\tcolorboxenvironment{lem}{
+enhanced jigsaw,
+colframe=Red,
+colback={White!95!Red},
+rightrule=2mm,
+sharp corners,
+before skip=10pt,after skip=10pt
+}
+
+\newtheorem{ex}[thm]{Example}
+\tcolorboxenvironment{ex}{% from ntheorem
+blanker,left=5mm,
+sharp corners,
+before skip=10pt,after skip=10pt,
+borderline west={2pt}{0pt}{Gray}
+}
+
+\newtheorem*{pf}{Proof}
+\tcolorboxenvironment{pf}{% from ntheorem
+breakable,blanker,left=5mm,
+sharp corners,
+before skip=10pt,after skip=10pt,
+borderline west={2pt}{0pt}{NavyBlue!80!white}
+}
+
+\newtheorem{defn}{Definition}[subsection]
+\tcolorboxenvironment{defn}{
+enhanced jigsaw,
+colframe=Cerulean,
+colback=White!90!Cerulean,
+drop fuzzy shadow east,
+rightrule=2mm,
+sharp corners,
+before skip=10pt,after skip=10pt
+}
+
+\newtheorem{prop}[thm]{Proposition}
+\tcolorboxenvironment{prop}{
+boxrule=0pt,
+boxsep=0pt,
+colback={White!90!Green},
+enhanced jigsaw,
+borderline west={2pt}{0pt}{Green},
+sharp corners,
+before skip=10pt,
+after skip=10pt,
+breakable
+}
+
+\setlength\parindent{0pt}
+\setlength{\parskip}{2pt}
+
+
+\begin{document}
+\let\ref\Cref
+
+\title{\bf{STAT331 }}
+\date{\today}
+\author{Austin Xia}
+
+\maketitle
+\newpage
+\tableofcontents
+\listoffigures
+\listoftables
+\newpage
+{Course Information}
+
+\section{review}
+\subsection{variance}
+$Var(aY+b) = a^2Var(Y)$
+
+$Var(X+Y) = Var(x)+Var(Y)$
+
+$$Var(y)=\frac{1}{n-1}\sum_i^n(y_i-\bar{y})^2$$
+
+\subsection{corvariance}
+$cov(X, X) = Var(X)$
+
+$cov(aY+c, bX+d) = abcov(X,Y)$
+
+$cov(U+V, X+Y) = cov(U,X)+cov(U,Y)+cov(V,X)+cov(V,Y)$
+
+For $(x_i, y_i)$, sample corvariance is 
+$$\frac{1}{n-1}\sum_i^n(y_i-\bar{y})(x_i-\bar{x})$$
+
+\subsection{Chi-sqaure}
+$X\sim \chi^2_\nu $ with $\nu$ degrees of freedom
+
+$$E[x]=\nu$$
+$$Var(X)=2\nu$$ 
+
+For $Z_i\sim^{iid}N(0,1):$
+$$X=\sum^n_{i=1}Z_i^2\sim\chi^2_n$$
+
+\subsection{t-Distribution}
+
+$$Y\sim t_\nu$$ with $\nu$ degrees of freedom
+
+$$E[y]=0$$
+$$Var(Y)=2\nu$$
+
+For independent $Z\sim N(0,1)$ and $X\sim\chi^2_\nu$
+$$\frac{Z}{\sqrt{X/\nu}}\sim t_\nu$$
+
+\subsection{correlation}
+sample correlation 
+$$r=\frac{S_{xy}}{\sqrt{S_{xx}S_{yy}}}=
+\frac{\sum_i^n(y_i-\bar{y})(x_i-\bar{x})}{\sqrt{\sum^n(y_i-\bar{y})^2}\sqrt{\sum(x_i-\bar{x})^2}}$$
+
+This is about how closely dots are clustered to a line.
+
+Not about the line itself
+
+\subsection{simple linear regression}
+$$y_i=\beta_0+\beta_1x_i+\epsilon_i, ~~~ \epsilon_i\sim^{iid}N(0,\alpha^2)$$
+or 
+$$y_i\sim^{indep}N(\beta_0+\beta_1x_i,\sigma^2)$$
+
+$\beta_1=\frac{S_{xy}}{S_{xx}}$
+
+$\beta_0=\bar{y}-\bar{x}*\beta_1$
+
+$$\hat\sigma^2=\frac{\sum^n_{i=1}e_i^2}{n-2}$$
+
+\section{inference}
+$\hat{\beta}_1=\sum_{i=1}^nw_iy_i$
+
+so $$\hat\beta_1\sim N(\sum^n_{i=1}w_i(\beta_0+\beta_1x_i),\sigma^2\sum_{i=1}^nw_i^2)$$
+
+$w=\frac{x_i-\bar {x}}{S_{xx}}$
+
+$E[\hat\beta_1]=\beta_1$
+
+$Var(\hat\beta_1)=\frac{\sigma^2}{S_{xx}}$
+
+$$\frac{\hat\beta_1-\beta_1}{\sigma/\sqrt{S_{xx}}}\sim N(0,1)$$
+
+$0.95=P(-1.96< Z < 1.96)$
+
+when $\sigma$ is known,
+we can then calculate a 95\% CI for $\beta_1$ is $\hat\beta_1\pm1.96\frac{\sigma}{\sqrt{S_{xx}}}$
+
+the random interval will cover $\beta$ 95\% of time
+
+
+In practice, $\sigma$ is not known.
+from complicated steps (slide 13 lec3) we obtain that 
+$$\frac{\hat\beta_1-\beta_1}{\hat\sigma/\sqrt{S_{xx}}}\sim t_{(n-2)}$$
+
+
+\subsection{standard error}
+$$SD(\hat\beta_1)=\frac{\sigma}{\sqrt{S_{xx}}}$$
+$$SE(\hat\beta_1)=\frac{\hat\sigma}{\sqrt{S_{xx}}}$$
+
+\subsection{Hypothesis test}
+$H_0: \beta_1=\theta_0$ against $H_1: \beta_1 \neq \theta_0$
+
+under $H_0$ what's probablity of observing a more extreme outcome
+
+\subsection{CI}
+CI for y
+$$\frac{\hat\mu_0-\mu_0}{\hat\sigma\sqrt{\frac{1}{n}+\frac
+{(x_0-\bar x)^2}{\sum^n_{i=1}(x_i-\bar x)^2}}}\sim t_{n-2}$$
+
+CI for new y
+$$\frac{\hat\mu_0-\mu_0}{\hat\sigma\sqrt{1+\frac{1}{n}+\frac
+{(x_0-\bar x)^2}{\sum^n_{i=1}(x_i-\bar x)^2}}}\sim t_{n-2}$$
+
+\section{Random Vector and Multivariable Normal}
+    Calculus review 
+     \begin{itemize}
+         \item $z=f(y_1 ... y_k)$, $y=(y_1... y_k)^T$ 
+         $\frac{dz}{dy}=
+         \begin{bmatrix}
+             \frac{dz}{dy_1}\\...\\\frac{dz}{dy_k}
+         \end{bmatrix}$
+         \item $z=y^TAy$ then $$\frac{dz}{dy}=Ay+A^Ty$$
+     \end{itemize}
+     $var(y)=E[(y-\mu)(y-\mu)^T]$
+     var cov matrix is positive semidefinite 
+     $$a^tVa\leq 0$$
+
+     $$Var(Ay)=A Var(y) A^T$$
+
+     suppose $z=(z_1...z_n)^T$ iid, $z_i \sim^{iid}N(0,1)$
+
+     then $y=Ay+\mu$ has multivariate normal distribution 
+     $y\sim MVN(\mu,\sum)$ where $E[y]=\mu, Var(y)=\sum=AA^T$
+
+     property: 
+     \begin{itemize}
+         \item linearity 
+     $u=Cy+d\sim MVN(C\mu+d, C\sum C^T)$
+
+        \item marginal distribution: if $\tilde y$ is vector subset of y, then it is MVN-distributed with 
+        part of y's varMatrix 
+        \item conditional distribution If $u=(y_1,y_2)$ $y_1|y_2$ is MVN-distributed 
+        \item independence if $\sum_{ij}=0$, then $y_i$ and $y_j$ are independent 
+     \end{itemize}
+
+     $$y\sim MVN(X\beta,\sigma^2I)$$
+     $$\hat\beta=(X^TX)^{-1}X^Ty$$
+     $$E[\hat\beta]=\beta$$
+     $$var[\hat\beta]=\sigma^2(X^TX)^{-1}$$
+     $$\hat\beta_j\sim N(\beta_j,\sigma^2V_{jj})$$
+     $$V=(X^TX)^{-1}$$
+     $$\hat y=[X(X^TX)^{-1}X^T]y=Hy$$
+
+     $$e=(I-H)y~~~\text{with some easy albegra }X^Te=0$$
+     $$\hat\sigma^2=\frac{1}{n-p-1}e^Te$$
+     $$E[e]=0~~~e=y-\hat y$$
+     \begin{itemize}
+         \item $e\sim N(0,\sigma^2(I-H))$
+         \item $\hat \beta$ and e are independent
+     \end{itemize}
+     if we can show $\frac{1}{\sigma^2}e^Te\sim\chi^2_{n-p-1}$ and it is independent of $\hat\beta$
+     $$\frac{\hat\beta_j-\beta_j}{\sqrt{\hat\sigma^2V_{jj}}}\sim t_{n-p-1}$$
+
+     $$\hat\beta_j\pm t_{n-p-1,1-\alpha/2}\hat\sigma\sqrt{V_{ii}}$$
+
+     note H is symetric and projective(idenpodent)
+
+     \subsection{inference}
+     $E[\hat\mu_0]=x_0\beta$
+
+     $Var[\hat\mu_0]=x_0\sigma^2(X^TX)^{-1}x_0^T$
+
+     $$\frac{\hat\mu_0-\mu_0}{\hat\sigma\sqrt{x_0(X^TX)^{-1}x_0^T}}\sim t_{n-p-1}$$
+
+     CI is $$\hat\mu_0\pm t_{n-p-1}\hat\sigma\sqrt{x_0(X^TX)^{-1}x_0^T}$$
+
+     prdiction CI is 
+     $$\frac{\hat\mu_{new}-\mu_{new}}{\hat\sigma\sqrt{1+x_0(X^TX)^{-1}x_0^T}}\sim t_{n-p-1}$$
+
+
+     \section{}
+     $MeHG|fishpart=N \sim N(\gamma, \sigma_N^2)$
+
+     $$\frac{\hat\beta_M-\hat\beta_{MW}}{SE(\hat\beta_M-\hat\beta_{MW})}\sim f_{n-p-1}$$
+
+     where $var(\hat\beta_M-\hat\beta_{MW})=\sigma^2(V_{3,3}+V_{4,4}-2Cov(3,4))$
+
+
+     if null hypothese is 3 $\beta$ are 0,
+
+     we construct 
+     $$F=\frac{\hat\beta_*^T(V_*)^{-1}(\hat\beta^*)}{q\hat\sigma^2}\sim F(q,n-p-1)$$
+     q is number of beta we hypoed, p is number of parameter n is number of data
+
+     \section{ANOVA, R-squared}
+     $$SSTotal=\su{i=1}{n}(y_i-\bar y)^2~~~~df=n-1$$
+     $$SSReg=\su{i=1}{n}(\hat y-\bar y)^2~~~df=p$$
+     $$SSRes=\su{i=1}{n}(y_i-\hat y)^2~~~~df=n-(p+1)$$
+
+     SStoal = SSRes+ SSReg
+
+     assume beta is 0,
+     $$F=\frac{SSReg/p}{SSRes/n-(P+1)}\sim F_{p,n-(p+1)}$$
+
+     To do F test for a group of corvariates:
+     $$\frac{(SSreg(Full)-SSReg(Reduced))/q}{SSres/(n-p-1)}\sim F_{q,n-(p+1)}$$
+
+     \subsection{Multicolinearity}
+        regressing $x_j$ on $X_j$:
+        $r^2_{y,\hat y}=R^2=\frac{SSreg}{SStotal}$
+
+        in simple linear regression,
+        $$Var(\hat\beta)=\frac{\sigma^2}{\sum(x_{ij}-\bar x)^2}$$
+        in multiple linear regression, $$Var(\hat\beta_j)=
+        \frac{\sigma^2}{\sum(X_{ij}-\bar x_j)^2}*\frac{1}{1-R_j^2}$$
+
+        we call $VIF_j = \frac{1}{1-R_j^2}$ Variance Inflation Factor
+
+        Intepretation:
+
+        $VIF_j = \frac{Var(\hat\beta_j)}{Var(\hat\beta^*)}$ where $\beta^*$
+        is the coefficient vector for a model with an idealized design matrix 
+        $X^*$ such that:
+        \begin{itemize}
+            \item $X_j^*=X_j$
+            \item column space of $X^*$ is same as that of X, hence we'd get same $\hat\sigma^2$
+            \item $X^*_J$ is uncorrelated with other elements of $X^*$
+        \end{itemize}
+
+        \section{Model Building Principles}
+            \subsection{interpretability}
+
+            \subsection{Parsimony}
+            \subsection{Goodness of fit}
+                \begin{itemize}
+                    \item R square 
+
+                        always increasing, favor large model
+                    \item Adjusted R sqaure 
+
+                        $1-\frac{SSres/(n-p-1)}{SStot/(n-1)}$
+
+                        prefer larger 
+
+                    \item Mean sqaure error 
+                        here is $\hat\sigma$, $SSres/(n-p-1)$
+                    \item AIC
+                        $$-2logL(\hat \theta)+2k$$
+
+                        prefer lower AIC
+
+                        BIC:
+                        $$-2logL(\hat \theta)+2klog(n)$$
+                \end{itemize}
+
+            $$R^2_{adj}=R^2-\frac{p}{n-p-1}(1-R^2)$$
+            \subsection{Predictive accuracy}
+
+            \section{assumption}
+            \subsection{independence}
+            \subsection{normality}
+            access with: noraml qq plot / studentize residuals
+
+
+            \subsection{heteroskadastcity}
+            access with: residuals vs fitted 
+
+            cure: WLS
+
+            \subsection{linearity }
+            access with: residuals vs X 
+
+            or added variable plot      res y vs res other should look linear 
+
+            cure: transformation 
+            
+            \subsection{outliers}
+            x outliers: leverage 
+
+            y outliers: studentized residuals sneaky LOO residuals 
+            jackknife residuals has mean near 0 and var near $\frac{1}{(n-p-1)-1}\su{n}{i=1}r^2_{(-i)}$
+
+
+            influence of a single point over our data:
+            \begin{itemize}
+                \item dffits 
+                \item cook's distance 
+                \item dfbetas
+            \end{itemize}
+        
+
+        
+
+\end{document}
+
+
+

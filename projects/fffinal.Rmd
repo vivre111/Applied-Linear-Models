@@ -1,0 +1,918 @@
+---
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library("eikosograms")
+library(glmnet)
+library(car)
+library(tidyverse)
+library(caret)
+library(leaps)
+library("plot3D")
+```
+
+\newpage
+# Appendix
+
+```{r}
+get.reduced.model = function(model, i){
+  # convenient helper to return the new model with ith feature removed
+  # i can be vector or number
+  
+  # first column of data will be response variable, other columns are features of original
+  # model, intercept wouldn't appear here as a feature
+  data = model$model
+  r = nrow(data)
+  c = ncol(data)
+  
+  # special case if there is only 1 feature left
+  if(c==2){
+    return(lm(data[1:r,1]~1))
+  }
+  
+  # we shouldn't receive a model with only intercept
+  if(c==1){
+    stop("get.reduced.model() recieved a model with intercept only")
+  }
+  
+  # explanatory variable 
+  names = colnames(data)[2:c]
+  # response variable
+  yname = colnames(data)[1]
+  formu = as.formula( paste(yname, "~", paste( names[-i], collapse = "+")))
+  # new model
+  m =  lm(formu , data=data)
+  return(m)
+}
+
+
+removezero = function(v){
+  v[v==0] = NA
+  v
+}
+
+
+# this function is to test transformation of pollutants result on lasso result
+# input the transformed data, the function does lasso on pollutants only, ignoring other features
+lasso.on.pollutants =function(data_1, plot=FALSE){
+  set.seed(seed)
+  M = model.matrix(lm(length~., data=data_1))
+  cols = colnames(M) 
+  # get the columns of pollutants features
+  po.ind = str_detect(cols, "POP")
+  y_train = data_1$length[1:700]
+  X_train = M[1:700,po.ind]
+  y_test= data_1$length[701:nTotal]
+  X_test= M[701:nTotal,(1:ncol(M))[po.ind]]
+  
+  
+  M_lasso <- glmnet(x=X_train,y=y_train,alpha = 1)
+  ## plot paths
+  
+  ## fit with crossval
+  cvfit_lasso <-  cv.glmnet(x=X_train,y=y_train,alpha = 1)
+  
+  ## plot MSPEs by lambda
+  
+  ## estimated betas for minimum lambda 
+  
+  ## predictions
+  pred_lasso <- predict(cvfit_lasso,newx=X_test,  s="lambda.min")
+  
+  ## MSPE in test set
+  MSPE_lasso <- mean((pred_lasso-y_test)^2)
+  print(paste("mspe",MSPE_lasso) )
+  if(plot){
+    plot(pred_lasso, y_test, main="pollutants choosen by lasso", xlab="predicted value", ylab="actually length")
+  }
+  
+  return( coef(cvfit_lasso, s = "lambda.min"))
+  
+}
+
+
+## Influence
+## determining outliers
+plot.outliers <- function(M){
+  Xmat <- model.matrix(M) ## design matrix
+  H <- Xmat%*%solve(t(Xmat)%*%Xmat)%*%t(Xmat) ## Hat matrix
+  diag(H)
+  lev <- hatvalues(M) ## leverage (h_i)
+  hbar <- mean(lev) ## \bar{h}
+  c(sum(lev),ncol(model.matrix(M)))## check trace is same as rank of 
+  
+  ## plot leverage
+  plot(lev,ylab="Leverage", main = "Leverage Outliers")
+  abline(h=2*hbar,lty=2) ## add line at 2hbar
+  ids <- which(lev>2*hbar) ## x values for labelling points >2hbar
+  points(lev[ids]~ids,col="red",pch=19) ## add red points >2hbar
+  text(x=ids,y=lev[ids], labels=ids, cex= 0.6, pos=2) ## label points >2hbar  
+}
+outliers <- function(M){
+  Xmat <- model.matrix(M) ## design matrix
+  H <- Xmat%*%solve(t(Xmat)%*%Xmat)%*%t(Xmat) ## Hat matrix
+  diag(H)
+  lev <- hatvalues(M) ## leverage (h_i)
+  hbar <- mean(lev) ## \bar{h}
+  c(sum(lev),ncol(model.matrix(M)))## check trace is same as rank of 
+  which(lev > 2*hbar)
+}
+
+plot.jackknife.res <- function(M){
+  res <- resid(M) # raw residuals
+  
+  Xmat <- model.matrix(M) ## design matrix
+  H <- Xmat%*%solve(t(Xmat)%*%Xmat)%*%t(Xmat) ## Hat matrix
+  diag(H)
+  lev <- hatvalues(M) ## leverage (h_i)
+  hbar <- mean(lev) ## \bar{h}
+  ids <- which(lev>2*hbar) ## x values for labelling points >2hbar
+  n <- nobs(M)
+  p <- length(attr(terms(M),"term.labels"))
+  stud <- res/(sigma(M)*sqrt(1-lev)) # studentized residuals
+  jack <- stud*sqrt((n-p-2)/(n-p-1-stud^2)) 
+   plot(jack,ylab="Studentized Jackknife Residuals", main = "Jackknife Outliers")
+  points(jack[ids]~ids,col="red",pch=19) ## add high leverage points
+  text(ids,jack[ids], labels=ids, cex= 0.6, pos=2) ## label points >2hbar
+}
+
+jackknife.res <- function(M){
+  res <- resid(M) # raw residuals
+  
+  Xmat <- model.matrix(M) ## design matrix
+  H <- Xmat%*%solve(t(Xmat)%*%Xmat)%*%t(Xmat) ## Hat matrix
+  diag(H)
+  lev <- hatvalues(M) ## leverage (h_i)
+  hbar <- mean(lev) ## \bar{h}
+  ids <- which(lev>2*hbar)
+  return(ids)
+}
+
+## helpful functions for plotting influence
+##----------------DFFITS-----------------------------------------------------------
+# Calculates influential points based on DFFITS.
+DFFITS <- function(M,method = 1, cutoff = 0.05){
+  data <- M$model
+  p <- length(attr(terms(M),"term.labels"))
+  n <- nobs(M)
+  ## check leverage
+  h <- hatvalues(M)
+  ##----------------DFFITS-----------------
+  dffits_m <- dffits(M)
+  if(method == 1){
+  cutoff <- 2*sqrt((p+1)/n)
+  }
+  which(abs(dffits_m)>cutoff)
+}
+
+plot.DFFITS <- function(M, method = 1, cutoff = 0.05){
+  data <- M$model
+  p <- length(attr(terms(M),"term.labels"))
+  n <- nobs(M)
+  ## check leverage
+  h <- hatvalues(M)
+  
+  
+  dffits_m <- dffits(M) 
+  
+  if(method == 1){
+    cutoff <- 2*sqrt((p+1)/n)
+  }
+  
+  ## plot DFFITS
+  plot(dffits_m,ylab="DFFITS",main = "DFFITS Outliers") 
+  abline(h=cutoff,lty=2, col = "red")  ## add thresholds
+  abline(h=-cutoff,lty=2, col = "red")
+  ## highlight influential points
+  dff_ind <- which(abs(dffits_m)>cutoff)
+  points(dffits_m[dff_ind]~dff_ind,col="red",pch=19) ## add red points
+  text(y=dffits_m[dff_ind],x=dff_ind, labels=dff_ind, pos=2) ## label high influence points
+  abline(h = cutoff, col = "red", lty = 2)
+  abline(h = -cutoff, col = "red", lty = 2)
+}
+
+
+##----------------Cook's Distance--------------------------------------------------------
+# Calculates influential points based on Cook's Distance
+CD <- function(M, cutoff = 0.5){
+  p <- length(attr(terms(M),"term.labels"))
+  n <- nobs(M)
+  D <- cooks.distance(M) # Cook's distance
+  ## influential points
+  which(pf(D,p+1,n-p-1,lower.tail=TRUE)>cutoff)
+}
+
+plot.CD <- function(M,method = 1, cutoff = 0.5){
+  # method = 1 is default (may not print any influential points if cutoff is not low enough)
+  # method = else <- calculate using simple R method
+  if(method == 1){
+    p <- length(attr(terms(M),"term.labels"))
+    n <- nobs(M)
+    D <- cooks.distance(M) # Cook's distance
+    ## influential points
+    inf_ind <- which(pf(D,p+1,n-p-1,lower.tail=TRUE)>cutoff)
+    
+    ## plot cook's Distance
+    plot(D,ylab="Cook's Distance")
+    points(D[inf_ind]~inf_ind,col="red",pch=19) ## add red points
+    text(y=D[inf_ind],x=inf_ind, labels=inf_ind, pos=4) ## label high influence points    
+  }else{
+    plot(M,which = 4)
+  }
+}
+
+
+##----------------DFBETAS-----------------------------------------------------------
+# Calculates influential points based on DFBETAS.
+DFBETAS <- function(M, method = 1, cutoff = 0.05){
+  DFBETAS <- dfbetas(M) 
+  dim(DFBETAS)
+  n <- nobs(M)
+  
+  # method = 1 <- default cutoff 2/sqrt(n)
+
+  if(method == 1){
+    cutoff <- 2/sqrt(n)
+  }
+  
+  vals <- list()
+  for(i in 2:dim(DFBETAS)[2]){
+    vals[[i]] <- which(abs(DFBETAS[,i])>cutoff)
+  }
+  vals
+}
+
+plot.DFBETAS <- function(M, method = 1, cutoff = 0.05){
+  
+  n <- nobs(M)
+  
+  # method = 1 <- default cutoff 2/sqrt(n)
+  if(method == 1){
+    cutoff <- 2/sqrt(n)
+  }
+  
+ 
+  DFBETAS <- dfbetas(M) 
+  dim(DFBETAS)
+  ## beta1
+  for(i in 2:dim(DFBETAS)[2]){
+    plot(DFBETAS[,i], type="h",xlab="Obs. Number", 
+         ylab=bquote(beta[.(i)]), main = "DFBETAS")
+    show_points <- which(abs(DFBETAS[,i])>cutoff)
+    points(x=show_points,y=DFBETAS[show_points,i],pch=19,col="red")
+    abline(h = cutoff, col = "red", lty = 2)
+    abline(h = -cutoff, col = "red", lty = 2)
+    text(x=show_points,y=DFBETAS[show_points,i],labels=show_points,pos=2)
+  }
+}
+
+# Error Analysis
+errorAnalysis <- function(M){
+  ## residuals
+  newdata <- M$model
+  res1 <- resid(M) # raw residuals
+  stud1 <- res1/(sigma(M)*sqrt(1-hatvalues(M))) # studentized residuals
+  
+  ## plot distribution of studentized residuals
+  hist(stud1,breaks="FD",
+     probability=TRUE,xlim=c(-4,4),
+     xlab="Studentized Residuals",
+     main="Distribution of Residuals")
+  grid <- seq(-3.5,3.5,by=0.05)
+  lines(x=grid,y=dnorm(grid),col="blue") # add N(0,1) pdf
+  
+  ## qqplot of studentized residuals
+  qqnorm(stud1)
+  abline(0,1) # add 45 degree line
+  
+  ## plot of residuals vs X
+  factors <- attr(terms(M),"term.labels")
+  for(i in 1:length(factors)){
+    ind <- which(colnames(newdata)==factors[i]) 
+    plot(res1 ~ newdata[,ind],ylab = "residuals",
+         xlab = factors[i], main = paste0("Residuals vs ",factors[i]), ylim = c(-1,2))
+  }
+  
+  ## plot of studentized residuals vs fitted values
+  plot(stud1~fitted(M),
+     xlab="Fitted Vals",
+     ylab="Studentized Residuals",
+     main="Residuals vs Fitted")
+
+}
+
+
+
+
+
+
+# will only be used for 10-fold CV here
+kfolds.cv <- function(dat, expr){
+  kfolds=10
+  mspe = rep(0, kfolds)
+  # labeling each data to one of then groups
+  ind = rep(1:kfolds, length=nrow(dat))
+  for(ii in 1:kfolds) {
+    train<- which(ind!=ii) # training observations
+    M.cv <- lm(expr, data=data[train,])
+    # cross-validation residuals
+    M.res <- dat$length[-train] - # test observations
+      predict(M.cv, newdat = dat[-train,]) # prediction with training dat
+    # mspe
+    mspe[ii] <- mean(M.res^2)
+  }
+  mean(mspe)
+}
+
+
+# limits:
+# only contains history of beta values of initial features
+# forward selection won't remove already-added features
+
+forward.change = function(data, expr, show=FALSE){
+  # initial smallest model
+  model = lm(expr, data=newdata)
+  # initial features(removing length), we'll keep track of those
+  initial.colname = names( model$coefficients)[-1]
+  tempnames = colnames(data)
+  cv.hist=c()
+  aic.hist = c()
+  coef.hist = list()
+  DFFITS.hist = c()
+  outliers.hist = c()
+  j=0
+  models = list()
+  while (TRUE) {
+    j=j+1
+    print(paste("step", j))
+    # existing features in this step's model
+    cov.in.m = colnames(model$model)
+    # all features
+    cov.all = colnames(newdata)
+    # the features that are not in this step's model, we will consider all of them
+    names.to.try = cov.all[! cov.all %in% cov.in.m]
+    nn = length(names.to.try)
+    #update tracks of this current model
+    cv.hist[j]=kfolds.cv(newdata, expr)
+    aic.hist[j] = extractAIC(model)[2]
+    coef.hist[[j]] = coef(model)
+    DFFITS.hist[j] = length(DFFITS(model))
+    outliers.hist[j] = length(outliers(model))
+    models[[j]] = model
+    cv.score = rep(0, nn)
+    # if we have chosen all features
+    if(length(names.to.try) == 0){
+      print("chose all ")
+      break
+    }
+    # we will try adding the new features one by one
+    # record all thier cross vadidation score
+    for (i in 1:nn) {
+      name = names.to.try[i]
+      newexpr =   paste(expr,  "+", name ) 
+      newmodel = lm(newexpr, data=newdata)
+      cv.score[i] = kfolds.cv(newdata, newexpr)
+    }
+    # the best model this step that has the least MSPE
+    ind = which.min(cv.score)
+    
+    # if the best model is not better than our last model, we are done
+    if(cv.score[ind]>cv.hist[j]){
+      print ("done choosing model")
+      break
+    }else{
+      # update our model
+      print(paste("added", names.to.try[ind]))
+      expr = paste(expr,"+", names.to.try[ind])  
+      model =  lm(expr, data=newdata)
+    }
+  }
+  plot(cv.hist, main = "cv")
+  plot(aic.hist, main = "aic")
+  plot(DFFITS.hist, main = "# of Influential Points - DFFITS")
+  plot(outliers.hist, main = "# of Outliers")
+  i = length(initial.colname)
+  j = length(coef.hist)
+  M = matrix(0, nrow = i, ncol = j)
+  # most importantly, we keep track of how the initial parameters change
+  # we only need to record it once as we kept track of the coefficient histories.
+  
+  # the ith parameter
+  for (ii in 1:i){
+    # at jth step
+    for (jj in 1:j) {
+      M[ii,jj] =  coef.hist[[jj]][initial.colname[ii]]
+    }
+  }
+  if(show==TRUE){
+    par(cex=0.7)
+    plot(M[1,], main="coefficent of pollutants", type = 'l', col=1, ylim = range(M), xlab="new feature index", ylab="coefficient")
+    if(i!=1){
+      for (a in 2:i){
+        lines(1:j, M[a,] ,col=a)
+      }
+      legend("topright",legend = initial.colname, col = 1:i, pch=1)
+    }
+  }
+  return(list(cv=cv.hist, coef=coef.hist, aic=aic.hist,
+              outliers=outliers.hist, DFFITS = DFFITS.hist,
+              models = models))
+}
+
+
+
+
+
+
+```
+
+
+
+
+```{r}
+# understanding our polulation:
+data = read.csv("pollutants.csv")
+
+
+# change factor features to reasonable names
+ind = data$male == 1
+data$male[ind] = "M"
+data$male[!ind] = "F"
+
+# we will visualize the age groups.
+# Note we will discard data$agecat latter, it won't be included in data analysis as we have ageyrs
+max(data$ageyrs)
+# 0-25 will be labeled 1, 26-50 labeled 2, etc.
+data$agecat = ceiling(data$ageyrs/25 )
+agecat = c("<25","25-50","51-75",">75")
+
+# changing some labels to text descriptions.
+for (i in 1:4){
+  ind = data$agecat == i
+  data$agecat[ind] = agecat[i]
+}
+
+
+edu=c("below", "highsch", "college","grad")
+for (i in 1:4){
+  ind = data$edu_cat == i
+  data$edu_cat[ind] = edu[i]
+}
+
+race=c("Other", "Mex", "Black","White")
+for (i in 1:4){
+  ind = data$race_cat == i
+  data$race_cat[ind] = race[i]
+}
+
+
+eikos(edu_cat~ race_cat + male ,data=data)
+eikos(edu_cat~ male+agecat ,data=data)
+
+
+# get rid of the agecat data we added
+if (colnames(data)[ ncol(data)] == "agecat"){
+  data = data[,-ncol(data)]
+}
+
+
+
+```
+
+
+
+```{r}
+
+
+data = read.csv("pollutants.csv")
+
+
+# the index does not really mean anything
+data = data[,-1]
+
+nTotal = nrow(data)
+
+#change some feature to factor type
+data$race_cat = factor(data$race_cat)
+data$edu_cat = factor(data$edu_cat)
+data$male = factor(data$male)
+data$smokenow= factor(data$smokenow)
+
+summary.stats <- matrix(NA,nrow = ncol(data),ncol = 7)
+cov.names <- colnames(data)
+for(i in 1:ncol(data)){
+  summary.stats[i,1] <- cov.names[i]
+  summary.stats[i,2:(1+length(summary(data[,i])))] <- round(summary(data[,i]),2)
+}
+
+knitr::kable(summary.stats,caption = "Summary Statistics",
+             col.names = c("Name", "Min.", "1st Qu.", 
+                           "Median", "Mean", "3rd Qu.","Max."))
+par(mfrow=c(3,3))
+for(i in 1:length(cov.names[-1])){
+  temp.model <- lm(paste0("length ~ ",cov.names[i+1]),data = data)
+  plot(data[,cov.names[i+1]],data$length, main = paste0("Length vs. ",cov.names[i+1]),
+       ylab = "Length", xlab = cov.names[i+1])
+  abline(temp.model,col = "blue")
+}
+
+data.train = data[1:700,]
+data.test = data[701:nTotal,]
+
+```
+
+
+
+```{r}
+# correlation between features
+# high correlation -> coeffients have large variance
+
+model = lm(length~. , data=data)
+#original vif
+
+vif(model)
+
+t1=colnames( model$model)
+
+
+while (TRUE) {
+  score = vif(model)
+  if (max(score) <10){
+    break
+  }
+  ind = which.max(score)
+  # this is safe with factor data type
+  model = get.reduced.model(model, ind)
+}
+# reduced model vif
+vif(model)
+t2=colnames( model$model)
+
+# view what features got removed
+setdiff(t1,t2)
+```
+
+
+
+```{r}
+# does one feature alone explain the model?
+
+# we fit length to each corvariate in a linear/log/square model
+
+Xfull = lm(length~., data=data)$model
+
+res = matrix(0, nrow = (ncol(Xfull)), ncol = 3)
+
+
+for(c in 2:ncol(Xfull)){
+  model = lm(data$length~Xfull[,c])
+  #res[,1] is simple linear models
+  #res[,2] is log linear models, we on
+  #res[,3] is square models
+  res[c,1] = mean(model$residuals^2)
+  # we won't fit log or sqaure model for catogrical variabl
+  if(! is.factor(Xfull[,c])){
+    modelpower2 = lm(data$length~poly( Xfull[,c], 2))
+    res[c,2] = mean(modelpower2$residuals^2)
+    if (! any(Xfull[,c] < 0 )){
+      # we won't try to log the feature that has negative values
+      modellog = lm(log(data$length)~ Xfull[,c])
+      res[c,3] = mean(modellog$residuals^2)
+    }
+  }
+}
+
+
+
+# how do these models perform in terms of mse
+box = list(simple.linear=removezero(res[,1]), log=removezero(res[,2]), sqr=removezero(res[,3]) )
+boxplot(box, main="single variable, MSE")
+
+# to look at what is best best single variable model
+which.min(removezero(res[,1]))
+which.min(removezero(res[,2]))
+which.min(removezero(res[,3]))
+
+
+# which is the best single feature
+colnames(Xfull)[30]
+
+# what does the best model look like
+simplelinear = lm(length~ageyrs, data=data)
+plot(data$ageyrs, data$length)
+abline(simplelinear$coefficients)
+
+#seems there is a linear relationship but looks insufficient.
+
+#Also seems sqr or log does not do exponentially better here
+
+#how is model choosen by automated soluation
+
+
+
+``` 
+
+```{r}
+
+
+### LASSO
+## fit models
+M = model.matrix(lm(length~., data=data))
+y_train = data$length[1:700]
+X_train = M[1:700,-1]
+y_test= data$length[701:nTotal]
+X_test= M[701:nTotal,-1]
+
+M_lasso <- glmnet(x=X_train,y=y_train,alpha = 1)
+####
+
+####
+## plot paths
+plot(M_lasso,xvar = "lambda",label=TRUE)
+
+## fit with crossval
+cvfit_lasso <-  cv.glmnet(x=X_train,y=y_train,alpha = 1)
+
+## plot MSPEs by lambda
+plot(cvfit_lasso)
+
+## estimated betas for minimum lambda 
+coef(cvfit_lasso, s = "lambda.min")
+
+## predictions
+pred_lasso <- predict(cvfit_lasso,newx=X_test,  s="lambda.min")
+
+## MSPE in test set
+MSPE_lasso <- mean((pred_lasso-y_test)^2)
+
+
+
+
+
+## RIDGE
+## fit models
+M_ridge <- glmnet(x=X_train,y=y_train,alpha = 0)
+
+## plot paths
+plot(M_ridge,xvar = "lambda",label=TRUE)
+
+## fit with crossval
+cvfit_ridge <-  cv.glmnet(x=X_train,y=y_train,alpha = 0)
+
+## plot MSPEs by lambda
+plot(cvfit_ridge)
+
+## estimated betas for minimum lambda 
+coef(cvfit_ridge, s = "lambda.min")## alternatively could use "lambda.1se"
+
+## predictions
+pred_ridge <- predict(cvfit_ridge,newx=X_test,  s="lambda.min")
+
+## MSPE in test set
+MSPE_ridge <- mean((pred_ridge-y_test)^2)
+
+
+## stepwise
+
+M0 = lm(length~1, data=data.train)
+Mfull = lm(length~., data=data.train)
+Mstep <- step(object = M0,
+              scope = list(lower = M0, upper = Mfull),
+              direction = "both", trace = 0, k = 2)
+
+MSPE_step = mean((  predict(Mstep, newdata=data.test) - y_test)^2)
+
+p = predict(Mstep, newdata=data.test)
+
+cvfit_lasso$del
+
+# surprisingly, this is greater than MSE of ageyrs~length.
+MSPE_lasso
+MSPE_ridge
+MSPE_step
+
+
+```
+
+
+
+
+
+
+
+```{r}
+# models by automated selection makes little sense for interpretation
+
+#pollutants and bioinfo makes little sense and there are too many covariate
+
+
+
+#lets see if there is a smaller good model
+
+#say we try to fit with only 2 features
+
+
+# lasso choose the same single variable
+min(which((M_lasso$lambda)<=exp( -2.5)))
+coefs = M_lasso$beta[,4]
+which(coefs!=0)
+
+
+
+# what 2 features did lasso choose
+i = min(which((M_lasso$lambda)<=exp( -3.96)))
+coefs = M_lasso$beta[,i]
+choosen=which(coefs!=0)
+coefs[choosen]
+
+
+
+# explore all 2-features model with best subset
+models= regsubsets(length~., data=data, nvmax=2)
+summary(models)
+# rss of all 2 feature model, we see no magical model
+mse = models$rss/nrow(data)
+hist(mse, main = "Histogram for MSE")
+
+
+
+
+# what does the best 2 feature model look like?
+z=data$length
+y=data$ageyrs
+x=data$POP_furan3
+
+fit <- lm(z ~ x + y)
+# predict values on regular xy grid
+grid.lines = 26
+x.pred <- seq(min(x), max(x), length.out = grid.lines)
+y.pred <- seq(min(y), max(y), length.out = grid.lines)
+xy <- expand.grid( x = x.pred, y = y.pred)
+z.pred <- matrix(predict(fit, newdata = xy), 
+                 nrow = grid.lines, ncol = grid.lines)
+# fitted points for droplines to surface
+
+fitpoints = predict(fit)
+# scatter plot with regression plane
+scatter3D(x, y, z, pch = 18, cex = 2, 
+    theta = 20, phi = 20, ticktype = "detailed",
+    surf = list(x = x.pred, y = y.pred, z = z.pred,  
+    facets = NA, fit = fitpoints), xlab="pop_furan3", ylab="ageyrs",zlab="length")
+
+
+```
+
+
+
+
+```{r}
+# perhaps length is related to organic pollutants
+
+# pollutants values are very large, we log transform it. and erroranalysis looks better
+
+cols = colnames(data) 
+po.ind = str_detect(cols, "POP")
+seed <- "20779975"
+
+
+
+
+
+``` 
+
+
+
+
+
+
+```{r}
+# we will analysis these
+set.seed(seed)
+
+# log transform
+newdata=data
+newdata$length <- log(data$length)
+newdata[,po.ind] = log(newdata[,po.ind])
+
+chosen.po.ind= which(lasso.on.pollutants(newdata,TRUE)!=0)
+chosen.po.ind= chosen.po.ind[2:length(chosen.po.ind)]
+chosen.pos = colnames(newdata)[chosen.po.ind]
+expr = paste("length~", paste(chosen.pos, collapse = "+"))
+lasso.pollu.model = (lm(expr,data=newdata))
+
+t=forward.change(newdata, expr, TRUE)
+# the last step vary by a lot becasue large aif -> large variance on beta, we shouldn't consider last step as good
+
+
+
+
+# if we only transform the pollutants
+newdata1 = data 
+newdata1$length = log(data$length)
+chosen.po.ind= which(lasso.on.pollutants(newdata1,TRUE)!=0)
+chosen.po.ind= chosen.po.ind[2:length(chosen.po.ind)]
+chosen.pos = colnames(newdata)[chosen.po.ind]
+finalModel_expr = paste("length~", paste(chosen.pos, collapse = "+"))
+lasso.pollu.model1 = (lm(expr,data=newdata1))
+t1=forward.change(newdata1, expr, TRUE)
+
+
+
+
+
+finalModel <- t$models[[2]]
+summary(finalModel)
+summary(lm(data$length~data$POP_furan4))
+
+finalModel$coefficients[ finalModel$coefficients<0.01]
+finalModel$coefficients[ finalModel$coefficients>0.01]
+
+numpara= length(lasso.pollu.model$coefficients)-1
+# excluding length in full model
+plot(rep(1:numpara,2),  c(lasso.pollu.model$coefficients[-1],finalModel$coefficients[-c(1,numpara+2)] ) , 
+     col=rep(c("lightblue","green"), each=numpara), pch = 16,
+     xlab = "Covariate Index", ylab="Estimates", 
+     main = "pollutants coefficient before&after adding other features")
+legend("bottomright", legend=c("before", "after"), col=c("lightblue","green"), lty=1, lwd = 2)
+coef(lasso.pollu.model)
+coef(finalModel)
+
+
+```
+
+
+```{r, fig.height = 5.5, fig.width = 8}
+errorAnalysis(t$models[[2]])
+
+plot(x = finalModel$fitted.values, y = log( data$length),
+     main = "Fitted values vs. Log Length", ylab = "Log Length", xlab = "Fitted Vals")
+abline(a = 0, b = 1,col = "red", lwd= 2)
+
+plot.jackknife.res(finalModel)
+plot.outliers(finalModel)
+plot.DFFITS(finalModel)
+```
+
+```{r}
+
+ 
+
+# Removing DFFITS outliers
+DFFITS_ol <- DFFITS(finalModel)
+newdata4 <- newdata[-DFFITS_ol,]
+finalModel_DFFITS <- lm(finalModel_expr, data = newdata4)
+summary(finalModel_DFFITS)
+
+ 
+
+# RMSE
+sqrt(mean(resid(finalModel_DFFITS)^2))
+
+ 
+
+
+# Removing leverage outliers
+lev_ol <- outliers(finalModel)
+newdata5 <- newdata[-lev_ol,]
+finalModel_lev <- lm(finalModel_expr, data = newdata5)
+summary(finalModel_lev)
+
+ 
+
+# RMSE
+sqrt(mean(resid(finalModel_lev)^2))
+
+ 
+
+# Removing jackknife outliers
+newdata6 <- newdata[-c(456, 751, 280, 706),]
+finalModel_JK <- lm(finalModel_expr, data = newdata6)
+summary(finalModel_JK)
+
+ 
+
+# RMSE
+sqrt(mean(resid(finalModel_JK)^2))
+
+ 
+
+# F-test to test for if only POP_furan3 and ageyrs coefficients are not equal to 0
+finalModel_red <- lm(length ~ POP_furan3 + ageyrs, data = newdata)
+dff <- finalModel$df
+dfr <- finalModel_red$df
+SSRes_full <- sum(residuals(finalModel)^2)
+SSRes_red <- sum(residuals(finalModel_red)^2)
+
+ 
+
+Fobs <- (SSRes_red-SSRes_full)/(dfr-dff)/(SSRes_full/dff)
+pf(Fobs,df1 = (dfr-dff),df2 = dff, lower.tail = FALSE)
+
+ 
+
+```
+
+```
+
